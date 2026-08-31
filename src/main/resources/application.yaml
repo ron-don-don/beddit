@@ -1,0 +1,27 @@
+app:
+  jwt:
+    secret: "9DzhmOYcZEdYD0M/4okimXVmJLqho61DtrP7780EZ6I="
+    access:
+      exp: 60
+    refresh:
+      exp: 10080
+  oidc:
+    google:
+      client-id: "631457439635-94hib22fs5b8tpg3dn627m2v46oq60gk.apps.googleusercontent.com"
+
+server:
+  servlet:
+    context-path: "/api"
+
+spring:
+  application:
+    name: "beddit"
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/appdb}
+    username: ${SPRING_DATASOURCE_USERNAME:appuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:apppassword}
