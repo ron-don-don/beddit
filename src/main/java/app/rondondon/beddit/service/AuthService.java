@@ -7,17 +7,20 @@ import app.rondondon.beddit.dto.request.JwtLogoutRequest;
 import app.rondondon.beddit.dto.request.JwtRefreshRequest;
 import app.rondondon.beddit.dto.response.JwtResponse;
 import app.rondondon.beddit.entity.User;
-import app.rondondon.beddit.exception.InvalidCredentialsException;
-import app.rondondon.beddit.exception.InvalidTokenException;
+import app.rondondon.beddit.exception.AuthenticationException;
+import app.rondondon.beddit.exception.ErrorCode;
 import app.rondondon.beddit.repo.UserRepository;
 import app.rondondon.beddit.security.GoogleTokenVerifier;
 import app.rondondon.beddit.security.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Random;
 
 @Service
@@ -30,34 +33,52 @@ public class AuthService {
     private final Random random = new Random();
     private final Blacklist blacklist;
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     @Value("${app.jwt.access.exp}")
     private int accessTokenExpireIn;
 
     public JwtResponse login(AuthRequest req) {
+        log.debug("Try login user with username: {}", req.username());
         var user = userRepository.findByUsername(req.username());
-        if (user.isPresent() &&  passwordEncoder.matches(req.password(), user.get().getPasswordHash())) {
-            return createJwtResponse(user.get());
-        }
-        throw new InvalidCredentialsException("Invalid username or password");
+        user.map(u -> {
+            if (passwordEncoder.matches(req.password(), u.getPasswordHash())){
+                log.debug("Login successful");
+                return u;
+            }
+            log.debug("Login failed(password mismatch)");
+            throw new AuthenticationException(ErrorCode.INCORRECT_PASSWORD);
+        }).orElseThrow(() -> {
+            log.debug("Login failed(user not found)");
+            return new AuthenticationException(ErrorCode.USER_NOT_FOUND);
+        });
+        return createJwtResponse(user.get());
     }
 
     public JwtResponse register(AuthRequest req) {
+        log.debug("Try register user with username: {}", req.username());
         var user = userRepository.findByUsername(req.username());
         if (user.isEmpty()) {
             var tempUser = new User();
             tempUser.setUsername(req.username());
             tempUser.setPasswordHash(passwordEncoder.encode(req.password()));
+            tempUser.setRoles(List.of("ROLE_USER"));
             var savedUser = userRepository.save(tempUser);
+            log.debug("Register successfully");
             return createJwtResponse(savedUser);
         }
-        throw new InvalidCredentialsException("User already exists");
+        log.debug("Register failed(user already exists)");
+        throw new AuthenticationException(ErrorCode.USER_ALREADY_EXISTS);
     }
 
     public JwtResponse loginWithGoogle(GoogleAuthRequest req) {
+
         var email = googleTokenVerifier.verify(req.idToken());
+        log.debug("Try login with Google with email: {}", email);
 
         var user = userRepository.findByEmail(email);
         if (user.isPresent()) {
+            log.debug("Login with Google successful, use previous account");
             return createJwtResponse(user.get());
         }
 
@@ -66,6 +87,7 @@ public class AuthService {
         tempUser.setUsername(username);
         tempUser.setEmail(email);
         var savedUser = userRepository.save(tempUser);
+        log.debug("Login with Google successful, created new account");
         return createJwtResponse(savedUser);
     }
 
@@ -74,26 +96,31 @@ public class AuthService {
         while (userRepository.findByUsername(username).isPresent()) {
             username += random.nextInt(10);
         }
+        log.debug("Generated username: {}", username);
         return username;
     }
     @Transactional
     public JwtResponse refresh(JwtRefreshRequest req){
+        log.debug("Try refresh token");
         var claims = jwtService.parseToken(req.refresh());
         var id = claims.getId();
         if (blacklist.isRevoked(id)){
-            throw new InvalidTokenException("Refresh token already revoked");
+            log.warn("Token already revoked");
+            throw new AuthenticationException(ErrorCode.REFRESH_TOKEN_REVOKED);
         }
         var sub = Long.decode(claims.getSubject());
         var user = userRepository.findById(sub);
         if (user.isPresent()) {
-            logout(new JwtLogoutRequest(req.refresh()));
-            return  createJwtResponse(user.get());
+            log.debug("Refresh successful");
+            return createJwtResponse(user.get());
         }
-        throw new InvalidTokenException("Refresh token has unexpected user id");
+        log.warn("Refresh token has unexpected user id");
+        throw new AuthenticationException(ErrorCode.USER_NOT_FOUND);
     }
 
     public Void logout(JwtLogoutRequest req) {
         blacklist.revoke(req.refresh());
+        log.debug("Logout successful");
         return null;
     }
 

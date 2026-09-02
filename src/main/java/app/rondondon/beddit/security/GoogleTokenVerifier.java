@@ -1,60 +1,78 @@
 package app.rondondon.beddit.security;
 
 
-import app.rondondon.beddit.exception.InvalidGoogleTokenException;
-import com.nimbusds.jose.JOSEException;
+import app.rondondon.beddit.exception.AuthenticationException;
+import app.rondondon.beddit.exception.ErrorCode;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
-import com.nimbusds.jose.proc.BadJOSEException;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
+import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
-import io.jsonwebtoken.Claims;
+import com.nimbusds.oauth2.sdk.id.Issuer;
+import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.text.ParseException;
-import java.time.Instant;
-import java.util.Date;
+import java.util.Set;
 
+@Slf4j
 @Component
 public class GoogleTokenVerifier {
 
-    private final String GOOGLE_JWKS_URI = "https://www.googleapis.com/oauth2/v3/token";
-    private final String ISSUER = "accounts.google.com";
+    private final Issuer GOOGLE_ISSUER = new Issuer("https://accounts.google.com");
 
     @Value("${app.oidc.google.client-id}")
     private String clientId;
 
     private final ConfigurableJWTProcessor<SecurityContext> jwtProcessor;
 
-    GoogleTokenVerifier() throws MalformedURLException {
-        var keySource = JWKSourceBuilder.create(URI.create(GOOGLE_JWKS_URI).toURL()).build();
-        var keySelector = new JWSVerificationKeySelector<>(JWSAlgorithm.RS256, keySource);
-        jwtProcessor = new DefaultJWTProcessor<>();
-        jwtProcessor.setJWSKeySelector(keySelector);
+    GoogleTokenVerifier() {
+        var tempJwtProcessor = new DefaultJWTProcessor<>();
+        try{
+            OIDCProviderMetadata metadata = OIDCProviderMetadata.resolve(GOOGLE_ISSUER);
+            var jwksUri = metadata.getJWKSetURI().toURL();
+            var keySource = JWKSourceBuilder.create(jwksUri)
+                    .cache(true)
+                    .rateLimited(true)
+                    .build();
+            var keySelector = new JWSVerificationKeySelector<>(JWSAlgorithm.RS256, keySource);
+            tempJwtProcessor.setJWSKeySelector(keySelector);
+
+            tempJwtProcessor.setJWTClaimsSetVerifier(new DefaultJWTClaimsVerifier<>(
+                    new JWTClaimsSet.Builder()
+                            .issuer(metadata.getIssuer().getValue())
+                            .audience(clientId)
+                            .build()
+                    , Set.of("exp")
+            ));
+        }
+        catch (Exception e) {
+            this.jwtProcessor = null;
+            log.error("Cannot connect to google oidc provider");
+            return;
+        }
+        this.jwtProcessor = tempJwtProcessor;
     }
 
     public String verify(String idToken) {
+        JWTClaimsSet claims;
         try {
-            var claims = jwtProcessor.process(idToken, null);
-            if (!claims.getAudience().contains(clientId)) {
-                throw new BadJOSEException("Invalid audience");
-            }
-            if (!claims.getIssuer().equals(ISSUER)) {
-                throw new BadJOSEException("Invalid issuer");
-            }
-            if (claims.getExpirationTime().before(Date.from(Instant.now()))){
-                throw new BadJOSEException("Token expired");
-            }
-
-            return claims.getClaim("email").toString();
+            claims = jwtProcessor.process(idToken, null);
         }
         catch (Exception e) {
-            throw new InvalidGoogleTokenException("Invalid Google Token");
+            log.warn("Incorrect google id token");
+            throw new AuthenticationException(ErrorCode.INCORRECT_GOOGLE_TOKEN);
         }
+        if (!(boolean) claims.getClaim("email_valid")) {
+            log.trace("User has unverified email: {}", claims.getClaim("email"));
+            throw new AuthenticationException(ErrorCode.UNVERIFIED_EMAIL);
+        }
+        log.trace("Google id token verified for email: {}", claims.getClaim("email"));
+        return claims.getClaim("email").toString();
     }
 }

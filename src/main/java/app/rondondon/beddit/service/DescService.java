@@ -2,7 +2,6 @@ package app.rondondon.beddit.service;
 
 import app.rondondon.beddit.dto.request.DescRequest;
 import app.rondondon.beddit.dto.response.DescResponse;
-import app.rondondon.beddit.entity.Desc;
 import app.rondondon.beddit.repo.DescRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

@@ -1,9 +1,7 @@
 package app.rondondon.beddit.dto.response;
 
 
-import jakarta.annotation.PostConstruct;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Value;
 
 
 @Getter

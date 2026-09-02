@@ -6,6 +6,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -23,10 +25,13 @@ import java.util.stream.Collectors;
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
+    private static final Logger log = LoggerFactory.getLogger(JwtFilter.class);
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.trace("Authorization header not found");
             SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
             return;
@@ -42,15 +47,15 @@ public class JwtFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        Long id = Long.getLong(claims.getSubject());
+        Long id = Long.parseLong(claims.getSubject());
         @SuppressWarnings("unchecked")
         List<String> roles = claims.get("roles", List.class);
 
         List<GrantedAuthority> grantedAuthorities = roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
-        Authentication authentication = new UsernamePasswordAuthenticationToken(id, "", grantedAuthorities);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(id, null, grantedAuthorities);
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
+        log.trace("Set new authentication with id: {}", id);
         filterChain.doFilter(request, response);
     }
 }
