@@ -1,4 +1,6 @@
 package app.rondondon.beddit.dto.request;
 
-public record ChangeEmailStartRequest(String newEmail) {
+import app.rondondon.beddit.annotations.CustomEmail;
+
+public record ChangeEmailStartRequest(@CustomEmail String newEmail) {
 }

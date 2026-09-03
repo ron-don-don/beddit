@@ -39,7 +39,7 @@ class AccountsTests extends AbstractTest {
         doNothing().when(emailService).sendVerificationCode(anyString(), anyLong());
         when(emailService.verifyVerificationCode(anyString(), anyLong(), anyString())).thenReturn(new EmailVerificationResponse(true));
         username = UUID.randomUUID().toString();
-        var response = registerUser(new AuthRequest(username, "12345"))
+        var response = registerUser(new AuthRequest(username, "12345b"))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
@@ -52,11 +52,11 @@ class AccountsTests extends AbstractTest {
         mockMvc.perform(put("/account/change/password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + accessToken)
-                        .content(objectMapper.writeValueAsString(new ChangePasswordRequest("234", "12345"))))
+                        .content(objectMapper.writeValueAsString(new ChangePasswordRequest("234bbb", "12345b"))))
                 .andExpect(status().isOk());
 
-        loginUser(new AuthRequest(username, "234")).andExpect(status().isOk());
-        loginUser(new AuthRequest(username, "12345")).andExpect(status().isUnauthorized());
+        loginUser(new AuthRequest(username, "234bbb")).andExpect(status().isOk());
+        loginUser(new AuthRequest(username, "12345b")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -86,7 +86,7 @@ class AccountsTests extends AbstractTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .content(objectMapper.writeValueAsString(new ChangeUsernameRequest("newBob"))))
                 .andExpect(status().isConflict());
-        loginUser(new AuthRequest("newBob", "12345")).andExpect(status().isOk());
+        loginUser(new AuthRequest("newBob", "12345b")).andExpect(status().isOk());
     }
 
     private ResultActions registerUser(AuthRequest authRequest) throws Exception {

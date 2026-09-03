@@ -26,12 +26,9 @@ public class GoogleTokenVerifier {
 
     private final Issuer GOOGLE_ISSUER = new Issuer("https://accounts.google.com");
 
-    @Value("${app.oidc.google.client-id}")
-    private String clientId;
-
     private final ConfigurableJWTProcessor<SecurityContext> jwtProcessor;
 
-    GoogleTokenVerifier() {
+    GoogleTokenVerifier(@Value("${app.oidc.google.client-id}") String clientId) {
         var tempJwtProcessor = new DefaultJWTProcessor<>();
         try{
             OIDCProviderMetadata metadata = OIDCProviderMetadata.resolve(GOOGLE_ISSUER);
@@ -68,7 +65,7 @@ public class GoogleTokenVerifier {
             log.warn("Incorrect google id token");
             throw new AuthenticationException(ErrorCode.INCORRECT_GOOGLE_TOKEN);
         }
-        if (!(boolean) claims.getClaim("email_valid")) {
+        if (!(boolean) claims.getClaim("email_verified")) {
             log.trace("User has unverified email: {}", claims.getClaim("email"));
             throw new AuthenticationException(ErrorCode.UNVERIFIED_EMAIL);
         }

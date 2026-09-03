@@ -29,9 +29,9 @@ class AuthTests extends AbstractTest {
 
 	@Test
 	void testAuth() throws Exception {
-		registerUser(new AuthRequest("bob", "12345"))
+		registerUser(new AuthRequest("bob", "12345b"))
 				.andExpect(status().isCreated());
-		String stringJwtResponse = loginUser(new AuthRequest("bob", "12345"))
+		String stringJwtResponse = loginUser(new AuthRequest("bob", "12345b"))
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
 		var jwtResponse = objectMapper.readValue(stringJwtResponse, JwtResponse.class);
 

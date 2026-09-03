@@ -92,7 +92,7 @@ public class AuthService {
     }
 
     private String usernameFromEmail(String email) {
-        var username = email.substring(0, email.indexOf("@"));
+        var username = email.substring(0, Math.min(email.indexOf("@"), 12));
         while (userRepository.findByUsername(username).isPresent()) {
             username += random.nextInt(10);
         }
