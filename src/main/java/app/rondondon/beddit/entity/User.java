@@ -42,9 +42,4 @@ public class User {
     @Getter
     @Column(updatable = false)
     private Instant createdAt = Instant.now();
-
-    @Getter
-    @Setter
-    @OneToOne(mappedBy = "owner", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Desc description;
 }
