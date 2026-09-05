@@ -17,25 +17,23 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AccountService {
 
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-
-    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
     @Transactional
     public void changePassword(ChangePasswordRequest req, Long id) {
         userRepository.findById(id).map(user -> {
-            if (passwordEncoder.matches(req.oldPassword(), user.getPasswordHash())){
-                log.debug("Change from: {} for user: {}", req.oldPassword(), user.getUsername());
-                user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
-                return user;
-            }
-            else  {
-                log.debug("Incorrect password: {} for user: {}",req.oldPassword(), user.getUsername());
-                throw new AuthenticationException(ErrorCode.INCORRECT_PASSWORD);
-            }
+                    if (passwordEncoder.matches(req.oldPassword(), user.getPasswordHash())) {
+                        log.debug("Change from: {} for user: {}", req.oldPassword(), user.getUsername());
+                        user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+                        return user;
+                    } else {
+                        log.debug("Incorrect password: {} for user: {}", req.oldPassword(), user.getUsername());
+                        throw new AuthenticationException(ErrorCode.INCORRECT_PASSWORD);
+                    }
 
-        })
+                })
                 .orElseThrow(() -> new AuthenticationException(ErrorCode.USER_NOT_FOUND));
     }
 
@@ -57,13 +55,13 @@ public class AccountService {
     public void changeUsername(ChangeUsernameRequest req, Long id) {
         log.debug("Changing username for user with id: {}", id);
         userRepository.findById(id).map(user -> {
-            if (userRepository.findByUsername(req.newUsername()).isPresent()){
-                log.debug("Username change failed(user already exists)");
-                throw new AuthenticationException(ErrorCode.USER_ALREADY_EXISTS);
-            }
-            user.setUsername(req.newUsername());
-            return user;
-        })
+                    if (userRepository.findByUsername(req.newUsername()).isPresent()) {
+                        log.debug("Username change failed(user already exists)");
+                        throw new AuthenticationException(ErrorCode.USER_ALREADY_EXISTS);
+                    }
+                    user.setUsername(req.newUsername());
+                    return user;
+                })
                 .orElseThrow(() -> {
                     log.debug("Username change failed(user with given id not found)");
                     return new AuthenticationException(ErrorCode.USER_NOT_FOUND);

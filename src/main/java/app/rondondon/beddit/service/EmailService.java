@@ -1,7 +1,6 @@
 package app.rondondon.beddit.service;
 
 import app.rondondon.beddit.dto.response.EmailVerificationResponse;
-import app.rondondon.beddit.repo.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +20,10 @@ import java.util.Random;
 @Service
 @RequiredArgsConstructor
 public class EmailService {
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
     private final JavaMailSender mailSender;
     private final StringRedisTemplate redisTemplate;
     private final Random random = new Random();
-
-    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
-
     @Value("${app.mail.message.ttl}")
     private int ttl;
 
@@ -46,15 +43,17 @@ public class EmailService {
         mailSender.send(message);
         log.debug("Sent verification code for email: {}", email);
     }
+
     private String createVerificationCode(String email, Long userId) {
         StringBuilder code = new StringBuilder();
-        for (int i = 0; i < 6; i++){
+        for (int i = 0; i < 6; i++) {
             code.append(random.nextInt(9));
         }
         log.trace("Created verification code for email, redis record: {}", "verification:" + code + ":" + userId + ":" + email);
         redisTemplate.opsForValue().set("verification:" + code + ":" + userId + ":" + email, String.valueOf(attempts), Duration.ofMinutes(ttl));
         return code.toString();
     }
+
     public EmailVerificationResponse verifyVerificationCode(String code, Long userId, String email) {
         var stringAttempts = redisTemplate.opsForValue().get("verification:" + code + ":" + userId + ":" + email);
         if (stringAttempts == null) {
@@ -62,8 +61,8 @@ public class EmailService {
             return new EmailVerificationResponse(false);
         }
         final var attemptsRemain = Integer.parseInt(stringAttempts);
-        if  (attemptsRemain <= 0) {
-            redisTemplate.delete("verification:" + code + ":" + userId  + ":" + email);
+        if (attemptsRemain <= 0) {
+            redisTemplate.delete("verification:" + code + ":" + userId + ":" + email);
             log.trace("No more attempts for verify for verification code, deleted redis record: {}", "verification:" + code + ":" + userId + ":" + email);
             return new EmailVerificationResponse(false);
         }

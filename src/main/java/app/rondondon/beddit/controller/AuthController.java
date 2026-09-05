@@ -6,6 +6,7 @@ import app.rondondon.beddit.dto.request.JwtLogoutRequest;
 import app.rondondon.beddit.dto.request.JwtRefreshRequest;
 import app.rondondon.beddit.dto.response.JwtResponse;
 import app.rondondon.beddit.service.AuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,12 +22,12 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<JwtResponse> login(@RequestBody AuthRequest req) {
+    public ResponseEntity<JwtResponse> login(@Valid @RequestBody AuthRequest req) {
         return ResponseEntity.ok(authService.login(req));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<JwtResponse> register(@RequestBody AuthRequest req) {
+    public ResponseEntity<JwtResponse> register(@Valid @RequestBody AuthRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(req));
     }
 

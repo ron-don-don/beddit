@@ -7,6 +7,7 @@ import app.rondondon.beddit.dto.request.ChangeUsernameRequest;
 import app.rondondon.beddit.dto.response.EmailVerificationResponse;
 import app.rondondon.beddit.service.AccountService;
 import app.rondondon.beddit.service.EmailService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,19 +24,19 @@ public class AccountController {
     private final EmailService emailService;
 
     @PutMapping("/change/password")
-    public ResponseEntity<Void> changePassword(@RequestBody ChangePasswordRequest req, @AuthenticationPrincipal Long id) {
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest req, @AuthenticationPrincipal Long id) {
         accountService.changePassword(req, id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/change/email/start")
-    public ResponseEntity<Void> changeEmailStart(@RequestBody ChangeEmailStartRequest req, @AuthenticationPrincipal Long id) {
+    public ResponseEntity<Void> changeEmailStart(@Valid @RequestBody ChangeEmailStartRequest req, @AuthenticationPrincipal Long id) {
         emailService.sendVerificationCode(req.newEmail(), id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/change/email/finish")
-    public ResponseEntity<EmailVerificationResponse> changeEmailFinish(@RequestBody ChangeEmailFinishRequest req, @AuthenticationPrincipal Long id) {
+    public ResponseEntity<EmailVerificationResponse> changeEmailFinish(@Valid @RequestBody ChangeEmailFinishRequest req, @AuthenticationPrincipal Long id) {
         var verified = emailService.verifyVerificationCode(req.code(), id, req.newEmail());
          if (verified.verified()){
              accountService.changeEmail(req, id);
@@ -44,7 +45,7 @@ public class AccountController {
     }
 
     @PutMapping("/change/username")
-    public ResponseEntity<Void> changeUsername(@RequestBody ChangeUsernameRequest req, @AuthenticationPrincipal Long id) {
+    public ResponseEntity<Void> changeUsername(@Valid @RequestBody ChangeUsernameRequest req, @AuthenticationPrincipal Long id) {
         accountService.changeUsername(req, id);
         return ResponseEntity.ok().build();
     }

@@ -2,7 +2,6 @@ package app.rondondon.beddit.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
@@ -11,35 +10,37 @@ import java.util.List;
 
 @Entity
 @Table(name = "users")
-@NoArgsConstructor
+@Getter
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Getter
     private Long id;
 
-    @Getter
     @Setter
     @Column(unique = true, nullable = false)
     private String username;
 
-    @Getter
     @Setter
     @Column
     private String passwordHash;
 
-    @Getter
     @Setter
     @Column(unique = true)
     private String email;
 
-    @Getter
+    @Setter
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "author", fetch = FetchType.LAZY)
+    private List<Post> posts;
+
+    @Setter
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "author", fetch = FetchType.LAZY)
+    private List<Comment> comments;
+
     @Setter
     @ElementCollection(fetch = FetchType.EAGER)
     private List<String> roles = new ArrayList<>();
 
-    @Getter
     @Column(updatable = false)
     private Instant createdAt = Instant.now();
 }
