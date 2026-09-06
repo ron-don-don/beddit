@@ -30,7 +30,7 @@ public class GoogleTokenVerifier {
 
     GoogleTokenVerifier(@Value("${app.oidc.google.client-id}") String clientId) {
         var tempJwtProcessor = new DefaultJWTProcessor<>();
-        try{
+        try {
             OIDCProviderMetadata metadata = OIDCProviderMetadata.resolve(GOOGLE_ISSUER);
             var jwksUri = metadata.getJWKSetURI().toURL();
             var keySource = JWKSourceBuilder.create(jwksUri)
@@ -47,8 +47,7 @@ public class GoogleTokenVerifier {
                             .build()
                     , Set.of("exp")
             ));
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             this.jwtProcessor = null;
             log.error("Cannot connect to google oidc provider");
             return;
@@ -60,9 +59,8 @@ public class GoogleTokenVerifier {
         JWTClaimsSet claims;
         try {
             claims = jwtProcessor.process(idToken, null);
-        }
-        catch (Exception e) {
-            log.warn("Incorrect google id token");
+        } catch (Exception e) {
+            log.warn("Incorrect google id token: {}", idToken);
             throw new AuthenticationException(ErrorCode.INCORRECT_GOOGLE_TOKEN);
         }
         if (!(boolean) claims.getClaim("email_verified")) {

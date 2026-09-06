@@ -2,32 +2,20 @@ package app.rondondon.beddit;
 
 import app.rondondon.beddit.dto.request.*;
 import app.rondondon.beddit.dto.response.EmailVerificationResponse;
-import app.rondondon.beddit.dto.response.JwtResponse;
 import app.rondondon.beddit.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-import tools.jackson.databind.ObjectMapper;
 
-import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RequiredArgsConstructor
 class AccountsTests extends AbstractTest {
-    private final MockMvc mockMvc;
-    private final ObjectMapper objectMapper;
-
     @MockitoBean
     private final EmailService emailService;
 
@@ -37,66 +25,49 @@ class AccountsTests extends AbstractTest {
     @BeforeEach
     void setUp() throws Exception {
         doNothing().when(emailService).sendVerificationCode(anyString(), anyLong());
-        when(emailService.verifyVerificationCode(anyString(), anyLong(), anyString())).thenReturn(new EmailVerificationResponse(true));
-        username = UUID.randomUUID().toString();
-        var response = registerUser(new AuthRequest(username, "12345b"))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        accessToken = objectMapper.readValue(response, JwtResponse.class).getAccess();
+        when(emailService.verifyVerificationCode(anyString(), anyLong(), anyString())).thenReturn(new EmailVerificationResponse(false));
+        when(emailService.verifyVerificationCode(eq("123456"), anyLong(), eq("newBob@gmail.com"))).thenReturn(new EmailVerificationResponse(true));
+        username = TestUtils.generateRandomString(8);
+        accessToken = authActions.registerAndExtractToken(new AuthRequest(username, "12345b")).getAccess();
     }
 
     @Test
     void changePassword() throws Exception {
-        mockMvc.perform(put("/account/change/password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .content(objectMapper.writeValueAsString(new ChangePasswordRequest("234bbb", "12345b"))))
+        accountActions.changePassword(new ChangePasswordRequest("234bbb", "12345b"), accessToken)
                 .andExpect(status().isOk());
 
-        loginUser(new AuthRequest(username, "234bbb")).andExpect(status().isOk());
-        loginUser(new AuthRequest(username, "12345b")).andExpect(status().isUnauthorized());
+        accountActions.changePassword(new ChangePasswordRequest("234", "234bbb"), accessToken)
+                .andExpect(status().isBadRequest());
+
+        authActions.loginUser(new AuthRequest(username, "234bbb")).andExpect(status().isOk());
+        authActions.loginUser(new AuthRequest(username, "12345b")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void changeEmail() throws Exception {
-        mockMvc.perform(put("/account/change/email/start")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .content(objectMapper.writeValueAsString(new ChangeEmailStartRequest("newBob@gmail.com"))))
+        accountActions.startChangingEmail(new ChangeEmailStartRequest("newBob@gmail.com"), accessToken)
                 .andExpect(status().isOk());
-        mockMvc.perform(put("/account/change/email/finish")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .content(objectMapper.writeValueAsString(new ChangeEmailFinishRequest("123456", "newBob@gmail.com"))))
-                .andExpect(status().isOk());
+
+        var ver = objectMapper.readValue(accountActions.finishChangingEmail(new ChangeEmailFinishRequest("123444", "newBob@gmail.com"), accessToken)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), EmailVerificationResponse.class).verified();
+        assertThat(ver).isFalse();
+        ver = objectMapper.readValue(accountActions.finishChangingEmail(new ChangeEmailFinishRequest("123456", "newBob123@gmail.com"), accessToken)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), EmailVerificationResponse.class).verified();
+        assertThat(ver).isFalse();
+
+        ver = objectMapper.readValue(accountActions.finishChangingEmail(new ChangeEmailFinishRequest("123456", "newBob@gmail.com"), accessToken)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), EmailVerificationResponse.class).verified();
+        assertThat(ver).isTrue();
     }
 
     @Test
     void changeUsername() throws Exception {
-        mockMvc.perform(put("/account/change/username")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .content(objectMapper.writeValueAsString(new ChangeUsernameRequest("newBob"))))
+
+        accountActions.changeUsername(new ChangeUsernameRequest("newBob"), accessToken)
                 .andExpect(status().isOk());
 
-        mockMvc.perform(put("/account/change/username")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .content(objectMapper.writeValueAsString(new ChangeUsernameRequest("newBob"))))
+        accountActions.changeUsername(new ChangeUsernameRequest("newBob"), accessToken)
                 .andExpect(status().isConflict());
-        loginUser(new AuthRequest("newBob", "12345b")).andExpect(status().isOk());
-    }
-
-    private ResultActions registerUser(AuthRequest authRequest) throws Exception {
-        return mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(authRequest)));
-    }
-    private ResultActions loginUser(AuthRequest authRequest) throws Exception {
-        return mockMvc.perform(post("/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(authRequest)));
+        authActions.loginUser(new AuthRequest("newBob", "12345b")).andExpect(status().isOk());
     }
 }

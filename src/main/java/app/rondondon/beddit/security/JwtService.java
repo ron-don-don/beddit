@@ -21,17 +21,14 @@ import java.util.UUID;
 
 @Component
 public class JwtService {
+    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
+    private final SecretKey jwtSecretKey;
     @Value("${app.jwt.access.exp}")
     private int jwtAccessExp;
-
     @Value("${app.jwt.refresh.exp}")
     private int jwtRefreshExp;
 
-    private final SecretKey jwtSecretKey;
-
-    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
-
-    JwtService (@Value("${app.jwt.secret}") String secretKey) {
+    JwtService(@Value("${app.jwt.secret}") String secretKey) {
         jwtSecretKey = Keys.hmacShaKeyFor(secretKey.getBytes());
     }
 
@@ -44,7 +41,7 @@ public class JwtService {
                 .claim("roles", user.getRoles())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp))
-                .claim("roles",  user.getRoles())
+                .claim("roles", user.getRoles())
                 .signWith(jwtSecretKey)
                 .compact();
     }
@@ -64,22 +61,19 @@ public class JwtService {
 
     public Claims parseToken(String token) {
         try {
-            log.trace("Parsing token: {}", token);
+            log.trace("Parsing token");
             return Jwts.parser()
                     .verifyWith(jwtSecretKey)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        }
-        catch (ExpiredJwtException e) {
+        } catch (ExpiredJwtException e) {
             log.trace("Failed to parse token(token expired)");
             throw new AuthenticationException(ErrorCode.INCORRECT_TOKEN);
-        }
-        catch (SignatureException e) {
+        } catch (SignatureException e) {
             log.trace("Failed to parse token(incorrect token signature)");
             throw new AuthenticationException(ErrorCode.INCORRECT_TOKEN);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.trace("Failed to parse token");
             throw new AuthenticationException(ErrorCode.INCORRECT_TOKEN);
         }

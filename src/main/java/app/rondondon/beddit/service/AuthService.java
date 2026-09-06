@@ -26,15 +26,13 @@ import java.util.Random;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final GoogleTokenVerifier googleTokenVerifier;
     private final Random random = new Random();
     private final Blacklist blacklist;
-
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
-
     @Value("${app.jwt.access.exp}")
     private int accessTokenExpireIn;
 
@@ -42,7 +40,7 @@ public class AuthService {
         log.debug("Try login user with username: {}", req.username());
         var user = userRepository.findByUsername(req.username());
         user.map(u -> {
-            if (passwordEncoder.matches(req.password(), u.getPasswordHash())){
+            if (passwordEncoder.matches(req.password(), u.getPasswordHash())) {
                 log.debug("Login successful");
                 return u;
             }
@@ -74,6 +72,9 @@ public class AuthService {
     public JwtResponse loginWithGoogle(GoogleAuthRequest req) {
 
         var email = googleTokenVerifier.verify(req.idToken());
+        if (email == null) {
+            throw new AuthenticationException(ErrorCode.INCORRECT_GOOGLE_TOKEN);
+        }
         log.debug("Try login with Google with email: {}", email);
 
         var user = userRepository.findByEmail(email);
@@ -99,12 +100,13 @@ public class AuthService {
         log.debug("Generated username: {}", username);
         return username;
     }
+
     @Transactional
-    public JwtResponse refresh(JwtRefreshRequest req){
+    public JwtResponse refresh(JwtRefreshRequest req) {
         log.debug("Try refresh token");
         var claims = jwtService.parseToken(req.refresh());
         var id = claims.getId();
-        if (blacklist.isRevoked(id)){
+        if (blacklist.isRevoked(id)) {
             log.warn("Token already revoked");
             throw new AuthenticationException(ErrorCode.REFRESH_TOKEN_REVOKED);
         }

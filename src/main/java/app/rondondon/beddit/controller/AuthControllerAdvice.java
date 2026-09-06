@@ -11,7 +11,7 @@ public class AuthControllerAdvice {
     @ExceptionHandler(AuthenticationException.class)
     public ProblemDetail handleInvalidTokenException(AuthenticationException e) {
         var detail = ProblemDetail.forStatus(e.getErrorCode().getHttpStatus());
-        detail.setDetail(e.getMessage());
+        detail.setDetail("Expected error occurred");
         detail.setProperty("error_code", e.getErrorCode());
         return detail;
     }

@@ -2,6 +2,7 @@ package app.rondondon.beddit;
 
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -11,10 +12,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestConstructor;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -29,7 +32,16 @@ public class AbstractTest {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Container
+    @SuppressWarnings("resource")
     static GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
+
+    protected AuthTestActions authActions;
+    protected AccountTestActions accountActions;
+
+    @Autowired
+    protected MockMvc mockMvc;
+    @Autowired
+    protected ObjectMapper objectMapper;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -41,10 +53,10 @@ public class AbstractTest {
     static void cleanUp(@Autowired JdbcTemplate jdbcTemplate,
                         @Autowired RedisConnectionFactory redisConnectionFactory) {
         List<String> tables = jdbcTemplate.queryForList("""
-            SELECT tablename FROM pg_tables
-            WHERE schemaname = 'public'
-              AND tablename NOT IN ('flyway_schema_history', 'databasechangelog', 'databasechangeloglock')
-            """, String.class);
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+                  AND tablename NOT IN ('flyway_schema_history', 'databasechangelog', 'databasechangeloglock')
+                """, String.class);
 
         if (!tables.isEmpty()) {
             String sql = "TRUNCATE TABLE " + String.join(", ", tables) + " RESTART IDENTITY CASCADE";
@@ -54,5 +66,11 @@ public class AbstractTest {
         try (var connection = redisConnectionFactory.getConnection()) {
             connection.serverCommands().flushDb();
         }
+    }
+
+    @BeforeEach
+    public void setup() {
+        authActions = new AuthTestActions(mockMvc, objectMapper);
+        accountActions = new AccountTestActions(mockMvc, objectMapper);
     }
 }

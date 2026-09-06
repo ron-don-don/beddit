@@ -57,7 +57,7 @@ public class EmailService {
     public EmailVerificationResponse verifyVerificationCode(String code, Long userId, String email) {
         var stringAttempts = redisTemplate.opsForValue().get("verification:" + code + ":" + userId + ":" + email);
         if (stringAttempts == null) {
-            log.warn("Could not find remaining attempts for verification code, redis record: {}", "verification:" + code + ":" + userId + ":" + email);
+            log.warn("Could not find redis record: {}", "verification:" + code + ":" + userId + ":" + email);
             return new EmailVerificationResponse(false);
         }
         final var attemptsRemain = Integer.parseInt(stringAttempts);
